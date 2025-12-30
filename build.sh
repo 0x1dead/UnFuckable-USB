@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # UnFuckable USB Build Script
-# Author: 0x1fuckyou & Claude AI
+# Author: 0x1dead
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 APP_NAME="unfuckable-usb"
 OUTPUT_DIR="dist"
 

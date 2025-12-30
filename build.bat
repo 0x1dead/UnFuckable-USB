@@ -1,8 +1,8 @@
 @echo off
 REM UnFuckable USB Build Script for Windows
-REM Author: 0x1fuckyou & Claude AI
+REM Author: 0x1dead
 
-set VERSION=1.0.1
+set VERSION=1.0.2
 set APP_NAME=unfuckable-usb
 set OUTPUT_DIR=dist
 
