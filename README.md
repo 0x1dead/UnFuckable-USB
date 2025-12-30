@@ -1,3 +1,5 @@
+<img width="1520" height="660" alt="image" src="https://github.com/user-attachments/assets/096e2102-2bdb-4426-aacc-c4ff889c92c1" />
+
 # 🔐 UnFuckable USB
 
 Portable USB encryption tool. Your data, your rules.
