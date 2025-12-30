@@ -12,7 +12,7 @@ import (
 
 const (
 	AppName    = "UnFuckable USB"
-	AppVersion = "1.0.1"
+	AppVersion = "1.0.2"
 	AppAuthor  = "0x1dead"
 	AppTagline = "Making your data impossible to fuck with"
 	AppYear    = "2025"
@@ -28,7 +28,6 @@ const (
 	NonceSize      = 12
 	XNonceSize     = 24
 	SessionKeySize = 32
-	ChunkSize      = 16 * 1024 * 1024
 
 	WipePasses = 3
 
@@ -40,12 +39,18 @@ const (
 	DefaultAutoLockMinutes = 5
 	SessionExpiryHours     = 24 * 7
 
-	UIWidth      = 90
-	UIHeight     = 24
+	UIWidth       = 90
+	UIHeight      = 24
 	ProgressWidth = 50
 
 	ManifestFile = ".sys"
 	ExcludeFile  = ".unfuckable.exclude"
+
+	// Chunk defaults
+	DefaultChunkSize     = 5 * 1024 * 1024  // 5 MB
+	MinChunkSize         = 1 * 1024 * 1024  // 1 MB
+	MaxChunkSize         = 50 * 1024 * 1024 // 50 MB
+	DefaultChunkVariance = 30               // 30%
 )
 
 type Config struct {
@@ -62,6 +67,11 @@ type Config struct {
 	Exclusions      []string          `json:"exclusions"`
 	ConfirmActions  bool              `json:"confirm_actions"`
 	LastDrive       string            `json:"last_drive"`
+
+	// Chunk settings
+	UseChunks     bool `json:"use_chunks"`
+	ChunkSizeMB   int  `json:"chunk_size_mb"`   // in megabytes
+	ChunkVariance int  `json:"chunk_variance"`  // percent 0-100
 }
 
 var AppConfig = &Config{
@@ -78,6 +88,11 @@ var AppConfig = &Config{
 	Exclusions:      []string{},
 	ConfirmActions:  true,
 	LastDrive:       "",
+
+	// Chunk defaults
+	UseChunks:     true,
+	ChunkSizeMB:   5,
+	ChunkVariance: 30,
 }
 
 func getConfigDir() string {

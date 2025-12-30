@@ -2,17 +2,19 @@ package main
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 type PanicManager struct {
-	enabled    bool
-	running    bool
-	mu         sync.Mutex
-	stopChan   chan struct{}
-	onTrigger  func()
-	lastPanic  time.Time
-	panicCount int
+	enabled     bool
+	running     bool
+	triggered   atomic.Bool // защита от повторного вызова
+	mu          sync.Mutex
+	stopChan    chan struct{}
+	onTrigger   func()
+	lastPanic   time.Time
+	panicCount  int
 }
 
 var Panic = &PanicManager{
@@ -54,8 +56,13 @@ func (p *PanicManager) Stop() {
 	p.stopChan = make(chan struct{})
 }
 
-// Trigger manually triggers panic
+// Trigger manually triggers panic - ONCE only!
 func (p *PanicManager) Trigger() {
+	// Защита от повторного вызова!
+	if !p.triggered.CompareAndSwap(false, true) {
+		return // уже запущено
+	}
+
 	p.mu.Lock()
 	p.lastPanic = time.Now()
 	p.panicCount++
@@ -65,6 +72,12 @@ func (p *PanicManager) Trigger() {
 	if callback != nil {
 		callback()
 	}
+
+	// Сбрасываем флаг через 5 секунд
+	go func() {
+		time.Sleep(5 * time.Second)
+		p.triggered.Store(false)
+	}()
 }
 
 // IsEnabled returns if panic is enabled
@@ -91,10 +104,10 @@ func (p *PanicManager) listen() {
 			}
 		})
 	}
-	
+
 	// Wait for stop signal
 	<-p.stopChan
-	
+
 	if IsGlobalHotkeySupported() {
 		UnregisterPanicHotkey()
 	}
@@ -113,7 +126,7 @@ func GetHotkeyStatus() string {
 	return "F12 (" + T("in_app_only") + ")"
 }
 
-// EncryptAllDecrypted encrypts all currently decrypted drives
+// EncryptAllDecrypted encrypts all currently decrypted drives with sessions
 func EncryptAllDecrypted(progress ProgressFunc) []error {
 	devices, err := ScanDevices()
 	if err != nil {
@@ -140,10 +153,9 @@ func EncryptAllDecrypted(progress ProgressFunc) []error {
 	return errors
 }
 
-// PanicEncrypt is the panic button action
+// PanicEncrypt is the panic button action - encrypts all drives with sessions
 func PanicEncrypt() {
-	errors := EncryptAllDecrypted(nil)
-	_ = errors // In panic mode we don't care about individual errors
+	_ = EncryptAllDecrypted(nil)
 }
 
 // GetPanicStats returns panic statistics

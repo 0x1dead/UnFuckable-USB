@@ -92,6 +92,11 @@ var translations = map[string]map[string]string{
 		"confirm_actions": "Confirm Actions",
 		"panic_enabled":   "Panic Button",
 		"panic_hotkey":    "Panic Hotkey",
+		"use_chunks":      "Split into Chunks",
+		"chunk_size_mb":   "Chunk Size (MB)",
+		"chunk_variance":  "Size Variance (%)",
+		"reading_chunks":  "Reading chunks",
+		"compressing":     "Compressing",
 
 		// Confirmations
 		"confirm_encrypt": "Encrypt this drive?",
@@ -227,6 +232,11 @@ var translations = map[string]map[string]string{
 		"confirm_actions": "Подтверждать действия",
 		"panic_enabled":   "Кнопка паники",
 		"panic_hotkey":    "Горячая клавиша",
+		"use_chunks":      "Разбить на чанки",
+		"chunk_size_mb":   "Размер чанка (МБ)",
+		"chunk_variance":  "Разброс размера (%)",
+		"reading_chunks":  "Чтение чанков",
+		"compressing":     "Сжатие",
 
 		// Confirmations
 		"confirm_encrypt": "Зашифровать этот диск?",
@@ -362,6 +372,11 @@ var translations = map[string]map[string]string{
 		"confirm_actions": "Підтверджувати дії",
 		"panic_enabled":   "Кнопка паніки",
 		"panic_hotkey":    "Гаряча клавіша",
+		"use_chunks":      "Розбити на чанки",
+		"chunk_size_mb":   "Розмір чанка (МБ)",
+		"chunk_variance":  "Розкид розміру (%)",
+		"reading_chunks":  "Читання чанків",
+		"compressing":     "Стиснення",
 
 		// Confirmations
 		"confirm_encrypt": "Зашифрувати цей диск?",

@@ -95,7 +95,7 @@ func (a *App) buildUI() {
 func (a *App) updateHeader() {
 	a.header.Clear()
 	fmt.Fprintf(a.header, "\n[green]╔════════════════════════════════════════════════════════════════════════════════════════╗[-]\n")
-	fmt.Fprintf(a.header, "[green]║[yellow]                          🔐 %s v%s [grey]by %s[-][green]                        ║[-]\n", AppName, AppVersion, AppAuthor)
+	fmt.Fprintf(a.header, "[green]║[yellow]       🔐 %s v%s [grey]by %s[-][green]       ║[-]\n", AppName, AppVersion, AppAuthor)
 	fmt.Fprintf(a.header, "[green]╚════════════════════════════════════════════════════════════════════════════════════════╝[-]")
 }
 
@@ -374,6 +374,26 @@ func (a *App) showSettings() {
 		AppConfig.GenerateDecoys = checked
 	})
 
+	form.AddCheckbox(T("use_chunks"), AppConfig.UseChunks, func(checked bool) {
+		AppConfig.UseChunks = checked
+	})
+
+	form.AddInputField(T("chunk_size_mb"), fmt.Sprintf("%d", AppConfig.ChunkSizeMB), 5, nil, func(text string) {
+		var val int
+		fmt.Sscanf(text, "%d", &val)
+		if val >= 1 && val <= 50 {
+			AppConfig.ChunkSizeMB = val
+		}
+	})
+
+	form.AddInputField(T("chunk_variance"), fmt.Sprintf("%d", AppConfig.ChunkVariance), 5, nil, func(text string) {
+		var val int
+		fmt.Sscanf(text, "%d", &val)
+		if val >= 0 && val <= 100 {
+			AppConfig.ChunkVariance = val
+		}
+	})
+
 	form.AddCheckbox(T("panic_enabled"), AppConfig.PanicEnabled, func(checked bool) {
 		AppConfig.PanicEnabled = checked
 		if checked {
@@ -399,7 +419,7 @@ func (a *App) showSettings() {
 		SetTitle(" " + T("settings") + " ").
 		SetBorderColor(tcell.ColorYellow)
 
-	a.pages.AddAndSwitchToPage("settings", a.centerBox(form, 60, 18), true)
+	a.pages.AddAndSwitchToPage("settings", a.centerBox(form, 60, 24), true)
 }
 
 func (a *App) showExclusions() {

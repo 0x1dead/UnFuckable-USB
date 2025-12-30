@@ -3,11 +3,15 @@ package main
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -20,10 +24,23 @@ type VaultManifest struct {
 	Files         map[string]string `json:"f"` // real_name -> obfuscated_name
 	Salt          []byte            `json:"s"`
 	HasDecoy      bool              `json:"d"`
-	DoubleEncrypt bool              `json:"de"` // was double encryption used?
+	DoubleEncrypt bool              `json:"de"`
+
+	// Chunk info
+	UseChunks   bool     `json:"uc"`
+	ChunkNames  []string `json:"cn"` // ordered list of chunk file names
+	ChunkSizes  []int64  `json:"cs"` // size of each chunk
+	TotalChunks int      `json:"tc"`
 }
 
 type ProgressFunc func(current, total int64, stage string)
+
+// Random extensions for chunks
+var chunkExtensions = []string{
+	".tmp", ".bak", ".old", ".log", ".dat", ".bin", ".cache",
+	".db", ".idx", ".swp", ".temp", "~", ".part", ".download",
+	".crdownload", ".partial", ".!ut", ".bc!", ".aria2",
+}
 
 func EncryptDrive(drivePath, driveID, password string, progress ProgressFunc) error {
 	// Load exclusions
@@ -39,38 +56,40 @@ func EncryptDrive(drivePath, driveID, password string, progress ProgressFunc) er
 		return fmt.Errorf("no files to encrypt")
 	}
 
-	totalSize := calcTotalSize(files)
-
-	// Create temp archive
-	archivePath := filepath.Join(drivePath, ".tmp_"+RandomHex(8))
-	_, err = createArchive(drivePath, archivePath, files, func(c, t int64) {
-		if progress != nil {
-			progress(c, totalSize*2, T("archiving"))
-		}
-	})
-	if err != nil {
-		os.Remove(archivePath)
-		return fmt.Errorf("archive failed: %w", err)
-	}
-
-	// Read archive
-	archiveData, err := os.ReadFile(archivePath)
-	os.Remove(archivePath)
-	if err != nil {
-		return err
+	// Calculate total size
+	var totalSize int64
+	for _, f := range files {
+		totalSize += f.Size()
 	}
 
 	if progress != nil {
-		progress(totalSize, totalSize*2, T("encrypting"))
+		progress(0, totalSize, T("compressing"))
 	}
 
-	// Encrypt
+	// Create archive
+	archivePath := filepath.Join(drivePath, ".tmp_"+RandomHex(8))
+	if err := createArchive(files, drivePath, archivePath, progress, totalSize); err != nil {
+		return fmt.Errorf("archive failed: %w", err)
+	}
+	defer os.Remove(archivePath)
+
+	// Read archive
+	archiveData, err := os.ReadFile(archivePath)
+	if err != nil {
+		return fmt.Errorf("read archive failed: %w", err)
+	}
+
+	if progress != nil {
+		progress(totalSize/2, totalSize, T("encrypting"))
+	}
+
+	// Encrypt archive (inner layer)
 	encrypted, err := Encrypt(archiveData, password)
 	if err != nil {
 		return fmt.Errorf("encryption failed: %w", err)
 	}
 
-	// Generate obfuscated file names
+	// Generate manifest
 	manifest := &VaultManifest{
 		Version:       AppVersion,
 		Created:       time.Now(),
@@ -78,7 +97,8 @@ func EncryptDrive(drivePath, driveID, password string, progress ProgressFunc) er
 		OriginalSize:  totalSize,
 		FileCount:     len(files),
 		Files:         make(map[string]string),
-		DoubleEncrypt: AppConfig.DoubleEncrypt, // save encryption mode
+		DoubleEncrypt: AppConfig.DoubleEncrypt,
+		UseChunks:     AppConfig.UseChunks,
 	}
 
 	manifest.Salt, _ = GenerateSalt()
@@ -90,13 +110,21 @@ func EncryptDrive(drivePath, driveID, password string, progress ProgressFunc) er
 		manifest.HasDecoy = true
 	}
 
-	// Write encrypted vault with obfuscated name
-	vaultName := RandomHex(16)
-	vaultPath := filepath.Join(drivePath, "."+vaultName)
-	if err := os.WriteFile(vaultPath, encrypted, 0644); err != nil {
-		return err
+	// Write encrypted data
+	if AppConfig.UseChunks {
+		// Split into chunks with random sizes
+		if err := writeChunks(drivePath, encrypted, manifest); err != nil {
+			return fmt.Errorf("write chunks failed: %w", err)
+		}
+	} else {
+		// Single vault file
+		vaultName := RandomHex(16)
+		vaultPath := filepath.Join(drivePath, "."+vaultName)
+		if err := os.WriteFile(vaultPath, encrypted, 0644); err != nil {
+			return err
+		}
+		manifest.Files["__vault__"] = vaultName
 	}
-	manifest.Files["__vault__"] = vaultName
 
 	// Write decoy files
 	for _, name := range decoyFiles {
@@ -111,32 +139,125 @@ func EncryptDrive(drivePath, driveID, password string, progress ProgressFunc) er
 	if err != nil {
 		return err
 	}
-
-	manifestPath := filepath.Join(drivePath, ManifestFile)
-	if err := os.WriteFile(manifestPath, encManifest, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(drivePath, ManifestFile), encManifest, 0644); err != nil {
 		return err
 	}
 
-	// Secure delete original files
-	for _, file := range files {
+	// Delete original files
+	if progress != nil {
+		progress(totalSize*3/4, totalSize, T("wiping"))
+	}
+
+	for _, f := range files {
+		path := filepath.Join(drivePath, f.Name())
 		if AppConfig.SecureWipe {
-			SecureDelete(file)
+			SecureDelete(path)
 		} else {
-			os.Remove(file)
+			os.Remove(path)
 		}
 	}
 
-	// Clean empty directories
-	cleanEmptyDirs(drivePath)
+	// Remove empty directories
+	removeEmptyDirs(drivePath)
 
-	// CLEAR session after encryption - drive is now locked!
+	// Clear session after encryption
 	Sessions.Clear(driveID)
 
 	if progress != nil {
-		progress(totalSize*2, totalSize*2, T("done"))
+		progress(totalSize, totalSize, T("done"))
 	}
 
 	return nil
+}
+
+func writeChunks(drivePath string, data []byte, manifest *VaultManifest) error {
+	chunkSize := AppConfig.ChunkSizeMB * 1024 * 1024
+	if chunkSize < MinChunkSize {
+		chunkSize = MinChunkSize
+	}
+	if chunkSize > MaxChunkSize {
+		chunkSize = MaxChunkSize
+	}
+
+	variance := AppConfig.ChunkVariance
+	if variance < 0 {
+		variance = 0
+	}
+	if variance > 100 {
+		variance = 100
+	}
+
+	offset := 0
+	chunkIndex := 0
+	dataLen := len(data)
+
+	for offset < dataLen {
+		// Calculate chunk size with variance
+		thisChunkSize := chunkSize
+		if variance > 0 {
+			// Random variance: -variance% to +variance%
+			varianceRange := int64(chunkSize * variance / 100)
+			if varianceRange > 0 {
+				randVariance, _ := rand.Int(rand.Reader, big.NewInt(varianceRange*2))
+				thisChunkSize = chunkSize - int(varianceRange) + int(randVariance.Int64())
+			}
+		}
+
+		// Clamp to remaining data
+		if offset+thisChunkSize > dataLen {
+			thisChunkSize = dataLen - offset
+		}
+
+		// Generate random chunk name
+		chunkName := generateRandomChunkName()
+		chunkPath := filepath.Join(drivePath, chunkName)
+
+		// Write chunk
+		chunkData := data[offset : offset+thisChunkSize]
+		if err := os.WriteFile(chunkPath, chunkData, 0644); err != nil {
+			return err
+		}
+
+		manifest.ChunkNames = append(manifest.ChunkNames, chunkName)
+		manifest.ChunkSizes = append(manifest.ChunkSizes, int64(thisChunkSize))
+
+		offset += thisChunkSize
+		chunkIndex++
+	}
+
+	manifest.TotalChunks = chunkIndex
+	return nil
+}
+
+func generateRandomChunkName() string {
+	// Random prefix (looks like temp/system file)
+	prefixes := []string{
+		"~$", "~", ".", ".~", "$", "._",
+	}
+
+	// Random middle part
+	middles := []string{
+		RandomHex(8),
+		RandomHex(12),
+		RandomHex(16),
+		fmt.Sprintf("%d", time.Now().UnixNano()%1000000),
+	}
+
+	// Random extension
+	ext := chunkExtensions[randomIntN(len(chunkExtensions))]
+
+	prefix := prefixes[randomIntN(len(prefixes))]
+	middle := middles[randomIntN(len(middles))]
+
+	return prefix + middle + ext
+}
+
+func randomIntN(max int) int {
+	if max <= 0 {
+		return 0
+	}
+	n, _ := rand.Int(rand.Reader, big.NewInt(int64(max)))
+	return int(n.Int64())
 }
 
 func DecryptDrive(drivePath, driveID, password string, progress ProgressFunc) error {
@@ -146,16 +267,39 @@ func DecryptDrive(drivePath, driveID, password string, progress ProgressFunc) er
 		return fmt.Errorf("wrong password or corrupted vault")
 	}
 
-	// Find vault file
-	vaultName, ok := manifest.Files["__vault__"]
-	if !ok {
-		return fmt.Errorf("vault file not found")
-	}
+	var encrypted []byte
 
-	vaultPath := filepath.Join(drivePath, "."+vaultName)
-	encrypted, err := os.ReadFile(vaultPath)
-	if err != nil {
-		return fmt.Errorf("vault read failed: %w", err)
+	if manifest.UseChunks && len(manifest.ChunkNames) > 0 {
+		// Read and combine chunks
+		if progress != nil {
+			progress(0, manifest.OriginalSize, T("reading_chunks"))
+		}
+
+		for i, chunkName := range manifest.ChunkNames {
+			chunkPath := filepath.Join(drivePath, chunkName)
+			chunkData, err := os.ReadFile(chunkPath)
+			if err != nil {
+				return fmt.Errorf("chunk read failed: %s: %w", chunkName, err)
+			}
+			encrypted = append(encrypted, chunkData...)
+
+			if progress != nil {
+				progress(int64(i+1)*manifest.OriginalSize/int64(len(manifest.ChunkNames)),
+					manifest.OriginalSize, T("reading_chunks"))
+			}
+		}
+	} else {
+		// Single vault file
+		vaultName, ok := manifest.Files["__vault__"]
+		if !ok {
+			return fmt.Errorf("vault file not found")
+		}
+
+		vaultPath := filepath.Join(drivePath, "."+vaultName)
+		encrypted, err = os.ReadFile(vaultPath)
+		if err != nil {
+			return fmt.Errorf("vault read failed: %w", err)
+		}
 	}
 
 	if progress != nil {
@@ -185,14 +329,25 @@ func DecryptDrive(drivePath, driveID, password string, progress ProgressFunc) er
 	}
 	os.Remove(archivePath)
 
-	// Remove vault files
-	os.Remove(vaultPath)
+	// Remove chunk files
+	if manifest.UseChunks {
+		for _, chunkName := range manifest.ChunkNames {
+			os.Remove(filepath.Join(drivePath, chunkName))
+		}
+	} else {
+		// Remove single vault file
+		if vaultName, ok := manifest.Files["__vault__"]; ok {
+			os.Remove(filepath.Join(drivePath, "."+vaultName))
+		}
+	}
+
+	// Remove manifest
 	os.Remove(filepath.Join(drivePath, ManifestFile))
 
 	// Remove decoy files
 	removeDecoyFiles(drivePath)
 
-	// CREATE session after decryption - now we can quick-encrypt later!
+	// CREATE session after decryption
 	Sessions.Set(driveID, drivePath, password)
 
 	if progress != nil {
@@ -212,13 +367,7 @@ func QuickEncrypt(drivePath, driveID string, progress ProgressFunc) error {
 }
 
 func ChangePassword(drivePath, driveID, oldPassword, newPassword string) error {
-	// ChangePassword works on DECRYPTED drive only!
-	// We have files visible, and we want to change what password will be used for next encryption
-	
-	// Just update the session with new password
-	// Next time QuickEncrypt is called, it will use the new password
 	Sessions.Set(driveID, drivePath, newPassword)
-
 	return nil
 }
 
@@ -226,8 +375,10 @@ func EraseVault(drivePath, driveID string) error {
 	// Remove all hidden files
 	entries, _ := os.ReadDir(drivePath)
 	for _, e := range entries {
-		if len(e.Name()) > 0 && e.Name()[0] == '.' {
-			path := filepath.Join(drivePath, e.Name())
+		name := e.Name()
+		// Remove hidden files and chunk-like files
+		if len(name) > 0 && (name[0] == '.' || name[0] == '~' || name[0] == '$' || name[0] == '_') {
+			path := filepath.Join(drivePath, name)
 			if AppConfig.SecureWipe {
 				SecureDelete(path)
 			} else {
@@ -264,150 +415,132 @@ func loadManifest(drivePath, password string) (*VaultManifest, error) {
 	return &manifest, nil
 }
 
-func scanFiles(root string, exclusions []string) ([]string, error) {
-	var files []string
+func scanFiles(root string, exclusions []string) ([]os.FileInfo, error) {
+	var files []os.FileInfo
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || path == root || info.IsDir() {
-			return err
+		if err != nil {
+			return nil
 		}
 
+		if path == root {
+			return nil
+		}
+
+		relPath, _ := filepath.Rel(root, path)
+
 		// Skip hidden files
-		if info.Name()[0] == '.' {
+		if len(relPath) > 0 && (relPath[0] == '.' || relPath[0] == '~' || relPath[0] == '$') {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
 		// Check exclusions
-		relPath, _ := filepath.Rel(root, path)
 		for _, excl := range exclusions {
-			if matchExclusion(relPath, excl) {
+			if matched, _ := filepath.Match(excl, info.Name()); matched {
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if strings.Contains(relPath, excl) {
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 		}
 
-		files = append(files, path)
+		if !info.IsDir() {
+			files = append(files, &fileInfoWithPath{info, relPath})
+		}
+
 		return nil
 	})
 
 	return files, err
 }
 
-func matchExclusion(path, pattern string) bool {
-	// Normalize path separators
-	path = filepath.ToSlash(path)
-	pattern = filepath.ToSlash(pattern)
-
-	// Simple pattern matching
-	if pattern == path {
-		return true
-	}
-
-	// Wildcard at end
-	if len(pattern) > 0 && pattern[len(pattern)-1] == '*' {
-		prefix := pattern[:len(pattern)-1]
-		if len(path) >= len(prefix) && path[:len(prefix)] == prefix {
-			return true
-		}
-	}
-
-	// Contains check
-	if len(pattern) > 2 && pattern[0] == '*' && pattern[len(pattern)-1] == '*' {
-		substr := pattern[1 : len(pattern)-1]
-		return containsString(path, substr)
-	}
-
-	return false
+type fileInfoWithPath struct {
+	os.FileInfo
+	path string
 }
 
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
+func (f *fileInfoWithPath) Name() string {
+	return f.path
 }
 
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-func calcTotalSize(files []string) int64 {
-	var total int64
-	for _, f := range files {
-		if info, err := os.Stat(f); err == nil {
-			total += info.Size()
-		}
-	}
-	return total
-}
-
-func createArchive(baseDir, outputPath string, files []string, progress func(int64, int64)) (int64, error) {
-	out, err := os.Create(outputPath)
+func createArchive(files []os.FileInfo, root, archivePath string, progress ProgressFunc, totalSize int64) error {
+	file, err := os.Create(archivePath)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	defer out.Close()
+	defer file.Close()
 
-	gw := gzip.NewWriter(out)
-	defer gw.Close()
+	gzWriter := gzip.NewWriter(file)
+	defer gzWriter.Close()
 
-	tw := tar.NewWriter(gw)
-	defer tw.Close()
+	tarWriter := tar.NewWriter(gzWriter)
+	defer tarWriter.Close()
 
 	var processed int64
-	total := calcTotalSize(files)
 
-	for _, file := range files {
-		info, err := os.Stat(file)
+	for _, f := range files {
+		filePath := filepath.Join(root, f.Name())
+
+		header, err := tar.FileInfoHeader(f, "")
 		if err != nil {
 			continue
 		}
 
-		header, err := tar.FileInfoHeader(info, "")
-		if err != nil {
+		header.Name = f.Name()
+
+		if err := tarWriter.WriteHeader(header); err != nil {
 			continue
 		}
 
-		relPath, _ := filepath.Rel(baseDir, file)
-		header.Name = relPath
+		if !f.IsDir() {
+			file, err := os.Open(filePath)
+			if err != nil {
+				continue
+			}
 
-		tw.WriteHeader(header)
+			_, err = io.Copy(tarWriter, file)
+			file.Close()
 
-		f, err := os.Open(file)
-		if err != nil {
-			continue
-		}
+			if err != nil {
+				continue
+			}
 
-		io.Copy(tw, f)
-		f.Close()
-
-		processed += info.Size()
-		if progress != nil {
-			progress(processed, total)
+			processed += f.Size()
+			if progress != nil {
+				progress(processed/2, totalSize, T("compressing"))
+			}
 		}
 	}
 
-	return total, nil
+	return nil
 }
 
-func extractArchive(archivePath, destDir string) error {
-	f, err := os.Open(archivePath)
+func extractArchive(archivePath, destPath string) error {
+	file, err := os.Open(archivePath)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer file.Close()
 
-	gr, err := gzip.NewReader(f)
+	gzReader, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer gr.Close()
+	defer gzReader.Close()
 
-	tr := tar.NewReader(gr)
+	tarReader := tar.NewReader(gzReader)
 
 	for {
-		header, err := tr.Next()
+		header, err := tarReader.Next()
 		if err == io.EOF {
 			break
 		}
@@ -415,77 +548,81 @@ func extractArchive(archivePath, destDir string) error {
 			return err
 		}
 
-		target := filepath.Join(destDir, header.Name)
+		targetPath := filepath.Join(destPath, header.Name)
 
-		if header.Typeflag == tar.TypeReg {
-			os.MkdirAll(filepath.Dir(target), 0755)
-			out, err := os.Create(target)
+		// Ensure parent dir exists
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+			continue
+		}
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			os.MkdirAll(targetPath, os.FileMode(header.Mode))
+
+		case tar.TypeReg:
+			outFile, err := os.Create(targetPath)
 			if err != nil {
-				return err
+				continue
 			}
-			io.Copy(out, tr)
-			out.Close()
+
+			_, err = io.Copy(outFile, tarReader)
+			outFile.Close()
+
+			if err != nil {
+				continue
+			}
+
+			os.Chmod(targetPath, os.FileMode(header.Mode))
 		}
 	}
 
 	return nil
 }
 
-func cleanEmptyDirs(root string) {
+func removeEmptyDirs(root string) {
+	var dirs []string
+
 	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || !info.IsDir() || path == root {
+		if err != nil || path == root {
 			return nil
 		}
-		entries, _ := os.ReadDir(path)
-		if len(entries) == 0 {
-			os.Remove(path)
+		if info.IsDir() {
+			dirs = append(dirs, path)
 		}
 		return nil
 	})
+
+	// Sort by depth (deepest first)
+	sort.Slice(dirs, func(i, j int) bool {
+		return strings.Count(dirs[i], string(os.PathSeparator)) > strings.Count(dirs[j], string(os.PathSeparator))
+	})
+
+	for _, dir := range dirs {
+		entries, _ := os.ReadDir(dir)
+		if len(entries) == 0 {
+			os.Remove(dir)
+		}
+	}
 }
 
 func loadExclusions(drivePath string) []string {
-	exclusions := make([]string, len(AppConfig.Exclusions))
-	copy(exclusions, AppConfig.Exclusions)
+	var exclusions []string
 
-	// Load from drive
-	exclPath := filepath.Join(drivePath, ExcludeFile)
-	if data, err := os.ReadFile(exclPath); err == nil {
-		lines := splitLines(string(data))
+	// Global exclusions from config
+	exclusions = append(exclusions, AppConfig.Exclusions...)
+
+	// Per-drive exclusions
+	excludeFile := filepath.Join(drivePath, ExcludeFile)
+	data, err := os.ReadFile(excludeFile)
+	if err == nil {
+		lines := strings.Split(string(data), "\n")
 		for _, line := range lines {
-			line = trimSpace(line)
-			if line != "" && line[0] != '#' {
+			line = strings.TrimSpace(line)
+			if line != "" && !strings.HasPrefix(line, "#") {
 				exclusions = append(exclusions, line)
 			}
 		}
 	}
 
 	return exclusions
-}
-
-func splitLines(s string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\n' {
-			lines = append(lines, s[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		lines = append(lines, s[start:])
-	}
-	return lines
-}
-
-func trimSpace(s string) string {
-	start := 0
-	end := len(s)
-	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\r') {
-		start++
-	}
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\r') {
-		end--
-	}
-	return s[start:end]
 }
