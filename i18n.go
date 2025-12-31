@@ -21,6 +21,7 @@ var translations = map[string]map[string]string{
 		"confirm":     "Confirm",
 		"yes":         "Yes",
 		"no":          "No",
+		"help":        "Help",
 
 		// Devices
 		"no_devices":      "No USB devices found",
@@ -63,14 +64,14 @@ var translations = map[string]map[string]string{
 		"canceled":    "Canceled",
 
 		// Password
-		"enter_password":   "Enter Password",
-		"confirm_password": "Confirm Password",
-		"new_password":     "New Password",
-		"current_password": "Current Password",
-		"password_min":     "Minimum 8 characters",
+		"enter_password":    "Enter Password",
+		"confirm_password":  "Confirm Password",
+		"new_password":      "New Password",
+		"current_password":  "Current Password",
+		"password_min":      "Minimum 8 characters",
 		"password_mismatch": "Passwords do not match",
-		"wrong_password":   "Wrong password",
-		"password_changed": "Password changed",
+		"wrong_password":    "Wrong password",
+		"password_changed":  "Password changed",
 
 		// Vault info
 		"vault_info":     "Vault Info",
@@ -117,14 +118,14 @@ var translations = map[string]map[string]string{
 		"session_clearall": "Clear All",
 
 		// Panic
-		"panic_trigger":  "TRIGGER PANIC",
-		"panic_status":   "Status",
-		"panic_ready":    "Ready",
-		"panic_disabled": "Disabled",
-		"panic_count":    "Panic Count",
-		"panic_last":     "Last Panic",
-		"global":         "global",
-		"in_app_only":    "in-app only",
+		"panic_trigger":      "TRIGGER PANIC",
+		"panic_status":       "Status",
+		"panic_ready":        "Ready",
+		"panic_disabled":     "Disabled",
+		"panic_count":        "Panic Count",
+		"panic_last":         "Last Panic",
+		"global":             "global",
+		"in_app_only":        "in-app only",
 		"hotkey_unavailable": "Global hotkey unavailable on this system",
 
 		// About
@@ -136,9 +137,61 @@ var translations = map[string]map[string]string{
 		"loading":     "Loading...",
 		"please_wait": "Please wait...",
 		"press_any":   "Press any key",
-		"help":        "Help",
 		"enabled":     "Enabled",
 		"disabled":    "Disabled",
+		"enable":      "Enable",
+		"disable":     "Disable",
+
+		// Help text
+		"help_text": `[yellow]UnFuckable USB - Quick Guide[-]
+
+[green] IMPORTANT WARNINGS:[-]
+
+[red] • DO NOT modify encrypted files manually![-]
+   When drive is encrypted, ALL your files are hidden inside
+   encrypted chunks. Don't touch/delete/move these files!
+
+[red] • New files on encrypted drive?[-]
+   If you copy files to encrypted drive, they WON'T be
+   encrypted automatically. You must:
+   1. Decrypt the drive first
+   2. Add your new files
+   3. Re-encrypt everything
+
+[green] How It Works:[-]
+
+ ENCRYPTION:
+ 1. Select your USB drive
+ 2. Choose "Encrypt" and set a strong password
+ 3. Your files are compressed, encrypted (AES+XChaCha20),
+    split into random chunks, and original files are wiped
+ 4. Drive looks like it contains random temp/system files
+
+ DECRYPTION:
+ 1. Select encrypted drive
+ 2. Enter your password
+ 3. Files are reassembled, decrypted, and restored
+ 4. A session is created for quick re-encryption
+
+ QUICK ENCRYPT:
+  After decrypting, you can quickly re-encrypt without
+  entering password again (uses saved session).
+
+[green] Panic Button:[-]
+
+ Press Ctrl+Shift+F12 (or F12) anytime to instantly
+ encrypt ALL decrypted drives with active sessions.
+ Use when you need to lock everything FAST.
+
+[green] Tips:[-]
+
+ • Use exclusions to skip files (portable apps, etc)
+ • Enable decoy files for extra stealth
+ • Secure wipe overwrites files 3 times before deletion
+ • Sessions expire after 7 days of inactivity
+ • Don't forget your password - it CANNOT be recovered!
+
+ Press ESC, Q, or B to go back`,
 	},
 
 	"ru": {
@@ -161,6 +214,7 @@ var translations = map[string]map[string]string{
 		"confirm":     "Подтвердить",
 		"yes":         "Да",
 		"no":          "Нет",
+		"help":        "Помощь",
 
 		// Devices
 		"no_devices":      "USB устройства не найдены",
@@ -203,14 +257,14 @@ var translations = map[string]map[string]string{
 		"canceled":    "Отменено",
 
 		// Password
-		"enter_password":   "Введите пароль",
-		"confirm_password": "Подтвердите пароль",
-		"new_password":     "Новый пароль",
-		"current_password": "Текущий пароль",
-		"password_min":     "Минимум 8 символов",
+		"enter_password":    "Введите пароль",
+		"confirm_password":  "Подтвердите пароль",
+		"new_password":      "Новый пароль",
+		"current_password":  "Текущий пароль",
+		"password_min":      "Минимум 8 символов",
 		"password_mismatch": "Пароли не совпадают",
-		"wrong_password":   "Неверный пароль",
-		"password_changed": "Пароль изменен",
+		"wrong_password":    "Неверный пароль",
+		"password_changed":  "Пароль изменен",
 
 		// Vault info
 		"vault_info":     "Информация о хранилище",
@@ -257,14 +311,14 @@ var translations = map[string]map[string]string{
 		"session_clearall": "Очистить все",
 
 		// Panic
-		"panic_trigger":  "ПАНИКА",
-		"panic_status":   "Статус",
-		"panic_ready":    "Готов",
-		"panic_disabled": "Отключено",
-		"panic_count":    "Срабатываний",
-		"panic_last":     "Последний раз",
-		"global":         "глобальный",
-		"in_app_only":    "только в приложении",
+		"panic_trigger":      "ПАНИКА",
+		"panic_status":       "Статус",
+		"panic_ready":        "Готов",
+		"panic_disabled":     "Отключено",
+		"panic_count":        "Срабатываний",
+		"panic_last":         "Последний раз",
+		"global":             "глобальный",
+		"in_app_only":        "только в приложении",
 		"hotkey_unavailable": "Глобальный хоткей недоступен на вашей системе",
 
 		// About
@@ -276,9 +330,61 @@ var translations = map[string]map[string]string{
 		"loading":     "Загрузка...",
 		"please_wait": "Подождите...",
 		"press_any":   "Нажмите любую клавишу",
-		"help":        "Помощь",
 		"enabled":     "Включено",
 		"disabled":    "Отключено",
+		"enable":      "Включить",
+		"disable":     "Отключить",
+
+		// Help text
+		"help_text": `[yellow] UnFuckable USB - Краткое руководство[-]
+
+[green] ВАЖНЫЕ ПРЕДУПРЕЖДЕНИЯ:[-]
+
+[red] • НЕ трогайте зашифрованные файлы вручную![-]
+   Когда диск зашифрован, ВСЕ ваши файлы спрятаны внутри
+   зашифрованных чанков. Не удаляйте/перемещайте их!
+
+[red] • Новые файлы на зашифрованном диске?[-]
+   Если вы скопируете файлы на зашифрованный диск, они
+   НЕ будут зашифрованы автоматически. Вам нужно:
+   1. Сначала расшифровать диск
+   2. Добавить новые файлы
+   3. Заново зашифровать всё
+
+[green] Как это работает:[-]
+
+ ШИФРОВАНИЕ:
+ 1. Выберите USB диск
+ 2. Нажмите "Зашифровать" и установите надёжный пароль
+ 3. Файлы сжимаются, шифруются (AES+XChaCha20),
+    разбиваются на случайные чанки, оригиналы стираются
+ 4. Диск выглядит как набор временных/системных файлов
+
+ РАСШИФРОВКА:
+  1. Выберите зашифрованный диск
+  2. Введите ваш пароль
+  3. Файлы собираются, расшифровываются и восстанавливаются
+  4. Создаётся сессия для быстрого повторного шифрования
+
+ БЫСТРОЕ ШИФРОВАНИЕ:
+  После расшифровки можно быстро зашифровать заново без
+  ввода пароля (используется сохранённая сессия).
+
+[green] Кнопка паники:[-]
+
+ Нажмите Ctrl+Shift+F12 (или F12) в любой момент, чтобы
+ мгновенно зашифровать ВСЕ расшифрованные диски с
+ активными сессиями. Используйте когда нужно срочно.
+
+[green] Советы:[-]
+
+ • Используйте исключения для пропуска файлов
+ • Включите файлы-приманки для дополнительной скрытности
+ • Безопасное стирание перезаписывает файлы 3 раза
+ • Сессии истекают через 7 дней неактивности
+ • Не забывайте пароль - его НЕВОЗМОЖНО восстановить!
+
+ Нажмите ESC, Q или B для выхода`,
 	},
 
 	"uk": {
@@ -301,6 +407,7 @@ var translations = map[string]map[string]string{
 		"confirm":     "Підтвердити",
 		"yes":         "Так",
 		"no":          "Ні",
+		"help":        "Допомога",
 
 		// Devices
 		"no_devices":      "USB пристрої не знайдено",
@@ -343,14 +450,14 @@ var translations = map[string]map[string]string{
 		"canceled":    "Скасовано",
 
 		// Password
-		"enter_password":   "Введіть пароль",
-		"confirm_password": "Підтвердіть пароль",
-		"new_password":     "Новий пароль",
-		"current_password": "Поточний пароль",
-		"password_min":     "Мінімум 8 символів",
+		"enter_password":    "Введіть пароль",
+		"confirm_password":  "Підтвердіть пароль",
+		"new_password":      "Новий пароль",
+		"current_password":  "Поточний пароль",
+		"password_min":      "Мінімум 8 символів",
 		"password_mismatch": "Паролі не співпадають",
-		"wrong_password":   "Невірний пароль",
-		"password_changed": "Пароль змінено",
+		"wrong_password":    "Невірний пароль",
+		"password_changed":  "Пароль змінено",
 
 		// Vault info
 		"vault_info":     "Інформація про сховище",
@@ -397,14 +504,14 @@ var translations = map[string]map[string]string{
 		"session_clearall": "Очистити все",
 
 		// Panic
-		"panic_trigger":  "ПАНІКА",
-		"panic_status":   "Статус",
-		"panic_ready":    "Готовий",
-		"panic_disabled": "Вимкнено",
-		"panic_count":    "Спрацювань",
-		"panic_last":     "Останній раз",
-		"global":         "глобальний",
-		"in_app_only":    "тільки в додатку",
+		"panic_trigger":      "ПАНІКА",
+		"panic_status":       "Статус",
+		"panic_ready":        "Готовий",
+		"panic_disabled":     "Вимкнено",
+		"panic_count":        "Спрацювань",
+		"panic_last":         "Останній раз",
+		"global":             "глобальний",
+		"in_app_only":        "тільки в додатку",
 		"hotkey_unavailable": "Глобальний хоткей недоступний на вашій системі",
 
 		// About
@@ -416,9 +523,61 @@ var translations = map[string]map[string]string{
 		"loading":     "Завантаження...",
 		"please_wait": "Зачекайте...",
 		"press_any":   "Натисніть будь-яку клавішу",
-		"help":        "Допомога",
 		"enabled":     "Увімкнено",
 		"disabled":    "Вимкнено",
+		"enable":      "Увімкнути",
+		"disable":     "Вимкнути",
+
+		// Help text
+		"help_text": `[yellow] UnFuckable USB - Короткий посібник[-]
+
+[green] ВАЖЛИВІ ПОПЕРЕДЖЕННЯ:[-]
+
+[red] • НЕ чіпайте зашифровані файли вручну![-]
+   Коли диск зашифровано, ВСІ ваші файли сховані всередині
+   зашифрованих чанків. Не видаляйте/переміщуйте їх!
+
+[red] • Нові файли на зашифрованому диску?[-]
+   Якщо ви скопіюєте файли на зашифрований диск, вони
+   НЕ будуть зашифровані автоматично. Вам потрібно:
+   1. Спочатку розшифрувати диск
+   2. Додати нові файли
+   3. Заново зашифрувати все
+
+[green] Як це працює:[-]
+
+ ШИФРУВАННЯ:
+ 1. Виберіть USB диск
+ 2. Натисніть "Зашифрувати" і встановіть надійний пароль
+ 3. Файли стискаються, шифруються (AES+XChaCha20),
+    розбиваються на випадкові чанки, оригінали стираються
+ 4. Диск виглядає як набір тимчасових/системних файлів
+
+ РОЗШИФРОВКА:
+ 1. Виберіть зашифрований диск
+ 2. Введіть ваш пароль
+ 3. Файли збираються, розшифровуються та відновлюються
+ 4. Створюється сесія для швидкого повторного шифрування
+
+ ШВИДКЕ ШИФРУВАННЯ:
+  Після розшифровки можна швидко зашифрувати знову без
+  введення пароля (використовується збережена сесія).
+
+[green] Кнопка паніки:[-]
+
+ Натисніть Ctrl+Shift+F12 (або F12) в будь-який момент,
+ щоб миттєво зашифрувати ВСІ розшифровані диски з
+ активними сесіями. Використовуйте коли потрібно терміново.
+
+[green] Поради:[-]
+
+ • Використовуйте виключення для пропуску файлів
+ • Увімкніть файли-приманки для додаткової прихованості
+ • Безпечне стирання перезаписує файли 3 рази
+ • Сесії закінчуються через 7 днів неактивності
+ • Не забувайте пароль - його НЕМОЖЛИВО відновити!
+
+ Натисніть ESC, Q або B для виходу`,
 	},
 }
 

@@ -12,7 +12,7 @@ import (
 
 const (
 	AppName    = "UnFuckable USB"
-	AppVersion = "1.0.2"
+	AppVersion = "1.0.3"
 	AppAuthor  = "0x1dead"
 	AppTagline = "Making your data impossible to fuck with"
 	AppYear    = "2025"
@@ -20,8 +20,8 @@ const (
 
 const (
 	Argon2Time      = 4
-	Argon2Memory    = 1024 * 1024 // 1 GB
-	Argon2Threads   = 8
+	Argon2Memory    = 1024 * 1024 // 1 GB - powerful settings
+	Argon2Threads   = 8            // 8 threads for max security
 	Argon2KeyLength = 32
 
 	SaltSize       = 32
@@ -39,8 +39,8 @@ const (
 	DefaultAutoLockMinutes = 5
 	SessionExpiryHours     = 24 * 7
 
-	UIWidth       = 90
-	UIHeight      = 24
+	UIWidth       = 95
+	UIHeight      = 28
 	ProgressWidth = 50
 
 	ManifestFile = ".sys"
@@ -70,8 +70,8 @@ type Config struct {
 
 	// Chunk settings
 	UseChunks     bool `json:"use_chunks"`
-	ChunkSizeMB   int  `json:"chunk_size_mb"`   // in megabytes
-	ChunkVariance int  `json:"chunk_variance"`  // percent 0-100
+	ChunkSizeMB   int  `json:"chunk_size_mb"`
+	ChunkVariance int  `json:"chunk_variance"`
 }
 
 var AppConfig = &Config{

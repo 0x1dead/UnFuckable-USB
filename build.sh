@@ -3,7 +3,7 @@
 # UnFuckable USB Build Script
 # Author: 0x1dead
 
-VERSION="1.0.2"
+VERSION="1.0.3"
 APP_NAME="unfuckable-usb"
 OUTPUT_DIR="dist"
 

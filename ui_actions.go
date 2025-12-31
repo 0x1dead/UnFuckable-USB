@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -284,6 +283,7 @@ func (a *App) performQuickEncrypt() {
 	}()
 }
 
+// FIX: Исправлен крэш после дешифрования
 func (a *App) performDecrypt(password string) {
 	a.setOperationRunning(true)
 
@@ -305,8 +305,16 @@ func (a *App) performDecrypt(password string) {
 			if err != nil {
 				a.showError(T("wrong_password"))
 			} else {
+				// FIX: Добавлена небольшая задержка перед обновлением UI
+				// чтобы файловая система успела обновиться
+				time.Sleep(100 * time.Millisecond)
+				
 				a.lastScan = time.Time{}
 				a.updateStatusBar(T("success"))
+				
+				// FIX: Принудительно сбрасываем selected чтобы избежать race
+				a.selected = nil
+				
 				a.showDeviceList()
 			}
 		})
@@ -337,15 +345,41 @@ func (a *App) performChangePassword(oldPassword, newPassword string) {
 }
 
 func (a *App) performErase() {
-	err := EraseVault(a.selected.Path, a.selected.DriveID)
+	a.setOperationRunning(true)
 
-	if err != nil {
-		a.showError(fmt.Sprintf("%v", err))
-	} else {
-		a.lastScan = time.Time{}
-		a.updateStatusBar(T("success"))
-		a.showDeviceList()
-	}
+	progress := tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter)
+
+	progress.SetBorder(true).
+		SetTitle(" 🗑 " + T("wiping") + " ").
+		SetBorderColor(tcell.ColorRed)
+
+	fmt.Fprintf(progress, "\n\n[red]%s[-]\n\n", T("wiping"))
+	fmt.Fprintf(progress, "[yellow]%s[-]", T("please_wait"))
+
+	a.pages.AddAndSwitchToPage("erase_progress", a.centerBox(progress, 50, 10), true)
+
+	go func() {
+		err := EraseVault(a.selected.Path, a.selected.DriveID)
+
+		a.app.QueueUpdateDraw(func() {
+			a.setOperationRunning(false)
+			a.pages.RemovePage("erase_progress")
+
+			if err != nil {
+				a.showError(fmt.Sprintf("%v", err))
+			} else {
+				a.lastScan = time.Time{}
+				a.updateStatusBar(T("success"))
+				
+				// Сбрасываем selected
+				a.selected = nil
+				
+				a.showDeviceList()
+			}
+		})
+	}()
 }
 
 func (a *App) showVaultInfo() {
@@ -419,31 +453,4 @@ func (a *App) createProgressView(title string) *tview.TextView {
 		SetBorderColor(tcell.ColorYellow)
 
 	return progress
-}
-
-func (a *App) updateProgress(view *tview.TextView, stage string, percent int, current, total int64) {
-	view.Clear()
-
-	bar := createProgressBar(percent)
-
-	fmt.Fprintf(view, "\n[yellow]%s[-]\n\n", stage)
-	fmt.Fprintf(view, "%s\n", bar)
-	fmt.Fprintf(view, "[grey]%d%%  %s / %s[-]\n", percent, FormatBytes(uint64(current)), FormatBytes(uint64(total)))
-}
-
-func createProgressBar(percent int) string {
-	if percent < 0 {
-		percent = 0
-	}
-	if percent > 100 {
-		percent = 100
-	}
-
-	filled := ProgressWidth * percent / 100
-	empty := ProgressWidth - filled
-
-	bar := "[green]" + strings.Repeat("█", filled) + "[-]" +
-		"[grey]" + strings.Repeat("░", empty) + "[-]"
-
-	return bar
 }

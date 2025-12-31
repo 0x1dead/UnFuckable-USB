@@ -13,6 +13,7 @@ type AutoLock struct {
 	stopChan     chan struct{}
 	running      bool
 	onLock       func()
+	wg           sync.WaitGroup
 }
 
 var AutoLocker = &AutoLock{
@@ -22,35 +23,30 @@ var AutoLocker = &AutoLock{
 	stopChan:     make(chan struct{}),
 }
 
-// SetTimeout sets auto-lock timeout
 func (al *AutoLock) SetTimeout(minutes int) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 	al.timeout = time.Duration(minutes) * time.Minute
 }
 
-// SetEnabled enables/disables auto-lock
 func (al *AutoLock) SetEnabled(enabled bool) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 	al.enabled = enabled
 }
 
-// SetCallback sets lock callback
 func (al *AutoLock) SetCallback(fn func()) {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 	al.onLock = fn
 }
 
-// Touch resets activity timer
 func (al *AutoLock) Touch() {
 	al.mu.Lock()
 	defer al.mu.Unlock()
 	al.lastActivity = time.Now()
 }
 
-// Start begins auto-lock monitoring
 func (al *AutoLock) Start() {
 	al.mu.Lock()
 	if al.running {
@@ -58,27 +54,49 @@ func (al *AutoLock) Start() {
 		return
 	}
 	al.running = true
+	al.wg.Add(1)
 	al.mu.Unlock()
 
 	go al.monitor()
 }
 
-// Stop stops auto-lock monitoring
+// FIX: Исправлена возможная паника при двойном close
 func (al *AutoLock) Stop() {
 	al.mu.Lock()
-	defer al.mu.Unlock()
-
+	
 	if !al.running {
+		al.mu.Unlock()
 		return
 	}
 
 	al.running = false
-	close(al.stopChan)
+	
+	// FIX: Сохраняем ссылку на канал перед unlock
+	stopChan := al.stopChan
+	
+	al.mu.Unlock()
+	
+	// FIX: Close без lock (после установки running=false)
+	// Это безопасно, так как monitor() проверяет running перед использованием канала
+	select {
+	case <-stopChan:
+		// Канал уже закрыт
+	default:
+		close(stopChan)
+	}
+	
+	// Ждем завершения горутины
+	al.wg.Wait()
+	
+	// FIX: Создаем новый канал для возможного следующего Start()
+	al.mu.Lock()
 	al.stopChan = make(chan struct{})
+	al.mu.Unlock()
 }
 
-// monitor checks for inactivity
 func (al *AutoLock) monitor() {
+	defer al.wg.Done()
+	
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
@@ -92,7 +110,6 @@ func (al *AutoLock) monitor() {
 	}
 }
 
-// check checks if timeout reached
 func (al *AutoLock) check() {
 	al.mu.Lock()
 	defer al.mu.Unlock()
@@ -103,13 +120,14 @@ func (al *AutoLock) check() {
 
 	if time.Since(al.lastActivity) > al.timeout {
 		if al.onLock != nil {
-			al.onLock()
+			// FIX: Вызываем callback в отдельной горутине чтобы не блокировать lock
+			callback := al.onLock
+			go callback()
 		}
 		al.lastActivity = time.Now()
 	}
 }
 
-// TimeRemaining returns time until auto-lock
 func (al *AutoLock) TimeRemaining() time.Duration {
 	al.mu.Lock()
 	defer al.mu.Unlock()
@@ -126,7 +144,6 @@ func (al *AutoLock) TimeRemaining() time.Duration {
 	return al.timeout - elapsed
 }
 
-// IsEnabled returns if auto-lock is enabled
 func (al *AutoLock) IsEnabled() bool {
 	al.mu.Lock()
 	defer al.mu.Unlock()
