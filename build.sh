@@ -24,8 +24,8 @@ go mod tidy
 LDFLAGS="-s -w -X main.AppVersion=${VERSION}"
 
 # Check for Windows resource compiler (for icon)
-if [ -f "icon.ico" ]; then
-    echo "[*] Found icon.ico, compiling Windows resources..."
+if [ -f "icons/icon.ico" ]; then
+    echo "[*] Found icons/icon.ico, compiling Windows resources..."
     
     # Try different resource compilers
     if command -v x86_64-w64-mingw32-windres &> /dev/null; then
@@ -39,7 +39,7 @@ if [ -f "icon.ico" ]; then
         echo "    Install mingw-w64 for icon support: apt install mingw-w64"
     fi
 else
-    echo "[*] No icon.ico found, Windows build will have no icon"
+    echo "[*] No icons/icon.ico found, Windows build will have no icon"
 fi
 
 # Build for Linux AMD64

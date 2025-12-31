@@ -25,11 +25,11 @@ set LDFLAGS=-s -w -X main.AppVersion=%VERSION%
 REM Compile Windows resources (icon)
 set ICON_COMPILED=0
 
-if exist icon.ico (
-    echo [*] Found icon.ico, compiling Windows resources...
+if exist icons\icon.ico (
+    echo [*] Found icons\icon.ico, compiling Windows resources...
     
     REM Try rsrc first
-    rsrc -ico icon.ico -o rsrc.syso 2>nul
+    rsrc -ico icons\icon.ico -o rsrc.syso 2>nul
     if exist rsrc.syso (
         echo     OK Compiled rsrc.syso
         set ICON_COMPILED=1
@@ -37,7 +37,7 @@ if exist icon.ico (
     )
     
     REM Try goversioninfo
-    goversioninfo -icon=icon.ico 2>nul
+    goversioninfo -icon=icons\icon.ico 2>nul
     if exist resource.syso (
         echo     OK Compiled resource.syso
         set ICON_COMPILED=1
@@ -48,7 +48,7 @@ if exist icon.ico (
     echo     [!] Install: go install github.com/akavel/rsrc@latest
     echo     [!] Building without icon...
 ) else (
-    echo [*] No icon.ico found, building without icon
+    echo [*] No icons\icon.ico found, building without icon
 )
 
 :build

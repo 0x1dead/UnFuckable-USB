@@ -1,0 +1,10 @@
+# Build artifacts
+*.syso
+*.exe
+dist/
+resource_*.syso
+rsrc.syso
+
+# OS
+.DS_Store
+Thumbs.db

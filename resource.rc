@@ -3,30 +3,31 @@
 
 #define IDI_ICON1 101
 
-IDI_ICON1 ICON "icon.ico"
+// Application icon
+IDI_ICON1 ICON "icons/icon.ico"
 
 // Version info
 1 VERSIONINFO
-FILEVERSION     1,0,1,0
-PRODUCTVERSION  1,0,1,0
+FILEVERSION     1,0,3,0
+PRODUCTVERSION  1,0,3,0
 FILEFLAGSMASK   0x3fL
 FILEFLAGS       0x0L
-FILEOS          0x40004L
-FILETYPE        0x1L
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
 FILESUBTYPE     0x0L
 BEGIN
     BLOCK "StringFileInfo"
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "0x1fuckyou & Claude AI"
-            VALUE "FileDescription", "UnFuckable USB - Making your data impossible to fuck with"
-            VALUE "FileVersion", "1.0.1.0"
-            VALUE "InternalName", "unfuckable-usb"
-            VALUE "LegalCopyright", "© 2025 0x1fuckyou & Claude AI"
+            VALUE "CompanyName",      "0x1dead"
+            VALUE "FileDescription",  "UnFuckable USB - Making your data impossible to fuck with"
+            VALUE "FileVersion",      "1.0.3.0"
+            VALUE "InternalName",     "unfuckable-usb"
+            VALUE "LegalCopyright",   "© 2025 0x1dead. MIT License"
             VALUE "OriginalFilename", "unfuckable-usb.exe"
-            VALUE "ProductName", "UnFuckable USB"
-            VALUE "ProductVersion", "1.0.1.0"
+            VALUE "ProductName",      "UnFuckable USB"
+            VALUE "ProductVersion",   "1.0.3.0"
         END
     END
     BLOCK "VarFileInfo"
